@@ -7,18 +7,60 @@ name = "harmony-eaca"
 version = "0.1.0"
 description = "Проект «Гармония» — EACA: вычислимое ядро этики"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "Сергей Лукьянов" }]
-keywords = ["ethics", "eaca", "harmony", "alignment"]
-dependencies = []
+keywords = ["ethics", "eaca", "harmony", "alignment", "governance"]
+dependencies = [
+    # Базовые зависимости (опционально)
+    # "cryptography>=42.0",  # для AES-GCM
+    # "pillow>=10.0",        # для стеганографии
+]
+
+[project.optional-dependencies]
+crypto = ["cryptography>=42.0"]
+stego = ["pillow>=10.0"]
+full = ["cryptography>=42.0", "pillow>=10.0"]
+dev = ["pytest>=7.0", "pytest-cov", "black", "ruff"]
+
+[project.scripts]
+harmony = "eaca.cli:main"
+harmony-build-pdf = "tools.build_pdf:main"
 
 [project.urls]
 Homepage = "https://github.com/bbcmpsu/-"
 Repository = "https://github.com/bbcmpsu/-"
-
-[project.scripts]
-harmony-build-pdf = "tools.build_pdf:main"
+Issues = "https://github.com/bbcmpsu/-/issues"
 
 [tool.setuptools]
-packages = ["eaca", "nodes"]
+packages = ["eaca", "nodes", "tests"]
+package-dir = {"" = "."}
+
+[tool.setuptools.package-data]
+eaca = ["*.py"]
+nodes = ["*.py"]
+tests = ["*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+include = "\\.pyi?$"
+exclude = """^/(
+    \\.git
+  | \\.venv
+  | build
+  | dist
+)$"""
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM", "PIE", "T20", "PT", "QF"]
+ignore = ["E501", "B008"]

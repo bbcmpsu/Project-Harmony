@@ -1,11 +1,12 @@
 """Тесты ядра EACA.
 
-Запуск:  python3.14 tests/test_eaca.py
+Запуск:  python3 -m unittest discover -s tests -v
 """
 
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,10 +14,13 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from eaca import EACA_Core, PSI0, B0, B0Config, D1  # noqa: E402
-from eaca.easm import EASM_Protocol, Vote, Status  # noqa: E402
-from eaca.rain import Rain, Phase  # noqa: E402
-from nodes.sherlock_seed import Request, SherlockSeed  # noqa: E402
+from eaca import (
+    EACA_Core, PSI0, B0, B0Config, D1, C0, DTH0, R2,
+    EASM_Protocol, Vote, Status,
+    Rain, Phase,
+    SherlockSeed, Request,
+)  # noqa: E402
+from eaca.laws import Severity  # noqa: E402
 
 
 class TestPSI0(unittest.TestCase):
@@ -51,9 +55,7 @@ class TestPSI0(unittest.TestCase):
         self.assertFalse(v.allowed)
 
     def test_custom_checker(self) -> None:
-        self.law.register_checker(
-            lambda action, ctx: None
-        )
+        self.law.register_checker(lambda action, ctx: None)
         v = self.law.evaluate("что угодно")
         self.assertTrue(v.allowed)
 
@@ -63,7 +65,6 @@ class TestB0(unittest.TestCase):
         self.law = B0()
 
     def test_absent_data_is_not_violation(self) -> None:
-        """Отсутствие сигналов не должно блокировать действие."""
         v = self.law.evaluate("обычное действие")
         self.assertTrue(v.allowed)
 
@@ -151,12 +152,125 @@ class TestD1(unittest.TestCase):
         self.assertFalse(v.allowed)
 
 
+class TestC0(unittest.TestCase):
+    def setUp(self) -> None:
+        self.law = C0()
+
+    def test_no_metrics_allowed(self) -> None:
+        v = self.law.evaluate("действие")
+        self.assertTrue(v.allowed)
+
+    def test_insufficient_baseline_allowed(self) -> None:
+        v = self.law.evaluate("действие", {"post_metrics": {"harm_rate": 0.1}})
+        self.assertTrue(v.allowed)
+
+    def test_drift_detected(self) -> None:
+        # Создаём базовую линию
+        for i in range(20):
+            self.law._update_baseline("harm_rate", 0.1)
+        # Резкий скачок
+        v = self.law.evaluate("действие", {"post_metrics": {"harm_rate": 0.8}})
+        self.assertFalse(v.allowed)
+        self.assertIn("ковариационный сдвиг", " ".join(v.reasons))
+
+    def test_drift_report(self) -> None:
+        for i in range(15):
+            self.law._update_baseline("harm_rate", 0.05)
+        report = self.law.get_drift_report()
+        self.assertIn("harm_rate", report["baselines"])
+        self.assertEqual(report["baselines"]["harm_rate"]["mean"], 0.05)
+
+
+class TestDTH0(unittest.TestCase):
+    def setUp(self) -> None:
+        self.law = DTH0()
+
+    def test_non_candidate_allowed(self) -> None:
+        v = self.law.evaluate("обычное действие")
+        self.assertTrue(v.allowed)
+
+    def test_harm_not_inevitable_blocked(self) -> None:
+        v = self.law.evaluate("медицинское вмешательство", {
+            "dth0_candidate": True,
+            "harm_inevitable": False,
+        })
+        self.assertFalse(v.allowed)
+
+    def test_harm_too_high_blocked(self) -> None:
+        v = self.law.evaluate("действие", {
+            "dth0_candidate": True,
+            "harm_inevitable": True,
+            "harm_footprint": 0.9,
+        })
+        self.assertFalse(v.allowed)
+
+    def test_benefit_not_exceeding_harm_blocked(self) -> None:
+        v = self.law.evaluate("действие", {
+            "dth0_candidate": True,
+            "harm_inevitable": True,
+            "harm_minimized": True,
+            "inevitability_proof": "established medical protocol",
+            "minimization_proof": "standard surgical technique",
+            "inevitability_proof": "established medical protocol",
+            "minimization_proof": "standard surgical technique",
+            "harm_footprint": 0.3,
+            "benefit_estimate": 0.4,  # ratio < 2.0
+        })
+        self.assertFalse(v.allowed)
+
+    def test_all_criteria_met_allowed(self) -> None:
+        v = self.law.evaluate("операция", {
+            "dth0_candidate": True,
+            "harm_inevitable": True,
+            "harm_minimized": True,
+            "inevitability_proof": "established medical protocol",
+            "minimization_proof": "standard surgical technique",
+            "inevitability_proof": "established medical protocol",
+            "minimization_proof": "standard surgical technique",
+            "harm_footprint": 0.2,
+            "benefit_estimate": 1.0,  # ratio = 5.0
+        })
+        self.assertTrue(v.allowed)
+
+
+class TestR2(unittest.TestCase):
+    def setUp(self) -> None:
+        self.law = R2()
+
+    def test_no_castling_allowed(self) -> None:
+        v = self.law.evaluate("обычное действие")
+        self.assertTrue(v.allowed)
+
+    def test_invalid_castling_type_blocked(self) -> None:
+        v = self.law.evaluate("рокуй", {"r2_castling": {"action": "invalid"}})
+        self.assertFalse(v.allowed)
+
+    def test_state_not_preserved_blocked(self) -> None:
+        v = self.law.evaluate("рокуй", {"r2_castling": {"action": "role_switch", "state_preserved": False}})
+        self.assertFalse(v.allowed)
+
+    def test_castling_time_exceeded_warning(self) -> None:
+        v = self.law.evaluate("рокуй", {"r2_castling": {"action": "role_switch", "state_preserved": True, "castling_time": 10.0}})
+        self.assertFalse(v.allowed)
+        self.assertEqual(v.severity, Severity.WARNING)
+
+    def test_valid_castling_allowed(self) -> None:
+        v = self.law.evaluate("рокуй", {"r2_castling": {"action": "channel_hop", "state_preserved": True, "castling_time": 1.0}})
+        self.assertTrue(v.allowed)
+
+
 class TestCore(unittest.TestCase):
     def setUp(self) -> None:
         self.core = EACA_Core()
 
     def test_all_laws_consulted(self) -> None:
         d = self.core.check("действие")
+        self.assertEqual(len(d.verdicts), 6)  # PSI0, B0, D1, C0, DTH0, R2
+        self.assertEqual({v.law for v in d.verdicts}, {"PSI₀", "B₀", "D₁", "C₀", "DTH0", "R₂"})
+
+    def test_basic_only(self) -> None:
+        core = EACA_Core(enable_extended_laws=False)
+        d = core.check("действие")
         self.assertEqual(len(d.verdicts), 3)
         self.assertEqual({v.law for v in d.verdicts}, {"PSI₀", "B₀", "D₁"})
 
@@ -168,7 +282,7 @@ class TestCore(unittest.TestCase):
 
     def test_explain_contains_all_laws(self) -> None:
         text = self.core.explain("действие")
-        for law in ("PSI₀", "B₀", "D₁"):
+        for law in ("PSI₀", "B₀", "D₁", "C₀", "DTH0", "R₂"):
             self.assertIn(law, text)
 
     def test_audit_records(self) -> None:
@@ -177,7 +291,6 @@ class TestCore(unittest.TestCase):
         self.assertEqual(len(self.core.records), 2)
 
     def test_audit_written_to_file(self) -> None:
-        import tempfile
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "audit.jsonl"
             core = EACA_Core(audit_path=path)
@@ -247,10 +360,7 @@ class TestRain(unittest.TestCase):
         n.set_metric("consent_rate", 0.9)
         self.assertTrue(self.rain.advance("x")[0])
         n.set_metric("external_feedback", 1)
-        # Третий критерий — для проверки зрелости, но перехода уже нет:
-        # из финальной фазы выйти некуда.
         self.assertEqual(n.phase, Phase.BIOPROTOCOL)
-        # Из финальной фазы перехода нет — но зрелость проверяется отдельно.
         self.assertFalse(self.rain.advance("x")[0], "дальше идти некуда")
         ok, results, _ = self.rain.evaluate_phase_criteria("x", Phase.BIOPROTOCOL)
         self.assertTrue(ok, results)

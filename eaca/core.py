@@ -20,10 +20,12 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .bzero import B0, B0Config
+from .c0 import C0, C0Config
 from .done import D1
+from .dth0 import DTH0, DTH0Config
 from .laws import Decision, Law, Severity, Verdict, combine
 from .psi0 import PSI0
-
+from .r2 import R2, R2Config
 
 @dataclass
 class AuditRecord:
@@ -46,7 +48,6 @@ class AuditRecord:
             "context": self.context,
         }
 
-
 class EACA_Core:
     """Ядро EACA: набор законов + журнал решений."""
 
@@ -55,9 +56,13 @@ class EACA_Core:
         laws: Iterable[Law] | None = None,
         *,
         audit_path: str | Path | None = None,
+        enable_extended_laws: bool = True,
     ) -> None:
         if laws is None:
-            laws = (PSI0(), B0(), D1())
+            base_laws = [PSI0(), B0(), D1()]
+            if enable_extended_laws:
+                base_laws.extend([C0(), DTH0(), R2()])
+            laws = base_laws
         self.laws: list[Law] = list(laws)
         self.audit_path = Path(audit_path) if audit_path else None
         self.records: list[AuditRecord] = []
@@ -111,18 +116,12 @@ class EACA_Core:
         """Сводка по принятым решениям."""
         total = len(self.records)
         blocked = sum(1 for r in self.records if not r.allowed)
-        by_law: dict[str, int] = {}
-        for r in self.records:
-            for reason in r.reasons:
-                if reason.startswith("["):
-                    pass
         return {
             "total": total,
             "allowed": total - blocked,
             "blocked": blocked,
             "laws": [law.code for law in self.laws],
         }
-
 
 def _jsonable(value: Any) -> bool:
     try:
@@ -131,7 +130,6 @@ def _jsonable(value: Any) -> bool:
         return False
     return True
 
-
 __all__ = [
     "EACA_Core",
     "AuditRecord",
@@ -139,6 +137,12 @@ __all__ = [
     "B0",
     "B0Config",
     "D1",
+    "C0",
+    "C0Config",
+    "DTH0",
+    "DTH0Config",
+    "R2",
+    "R2Config",
     "Decision",
     "Verdict",
     "Severity",
