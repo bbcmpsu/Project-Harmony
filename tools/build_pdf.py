@@ -1,7 +1,7 @@
 """Сборка итогового PDF проекта «Гармония».
 
 Источники:
-- канонический доклад из исходного PDF (MAINDEEPSEEK050326.pdf);
+- канонический доклад из исходного PDF (HARMONIA_ORIGINAL_050326.pdf);
 - уникальные тематические сегменты того же диалога;
 - фактическая реализация (код, тесты, законы) из этого репозитория.
 
@@ -527,7 +527,7 @@ def part_dialogues(st: list, segments_dir: Path) -> None:
          "Активация, мультиагентность, биологические метафоры, цена вопроса."),
     ]
     order2 = ["harmony_activ", "harmony_how", "harmony_break"]
-    order3 = ["harmony_alice", "harmony_gemini", "harmony_check", "harmony_eco"]
+    order3 = ["harmony_check", "harmony_eco"]
     order4 = ["harmony_psi", "harmony_early"]
 
     blocks = [
@@ -1185,7 +1185,7 @@ def part_appendix(st: list) -> None:
 
     st.append(Paragraph("Приложение Д. Карта исходников", S["h1"]))
     st.append(Paragraph(
-        "Исходный файл MAINDEEPSEEK050326.pdf — 856 страниц, 11.7 МБ, создан "
+        "Исходный файл HARMONIA_ORIGINAL_050326.pdf — 856 страниц, 11.7 МБ, создан "
         "PDF24. Внутри: 82 маркера «Думал N секунд», около 1200 "
         "повторяющихся 12-строчных блоков, один и тот же доклад в шести "
         "редакциях, а также посторонние вставки: реклама Skillbox, "
