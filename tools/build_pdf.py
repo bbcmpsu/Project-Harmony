@@ -1229,7 +1229,7 @@ def part_appendix(st: list) -> None:
     st.append(Spacer(1, 3 * mm))
     st.append(Paragraph(
         "Конец документа. Код проекта: <font name=\"DJM\" size=\"8.6\">"
-        "github.com/bbcmpsu/-</font>.", S["caption"]))
+        "github.com/bbcmpsu/Project-Harmony</font>.", S["caption"]))
 
 
 # --------------------------------------------------------------------------

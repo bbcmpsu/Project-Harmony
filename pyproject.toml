@@ -28,9 +28,9 @@ harmony = "eaca.cli:main"
 harmony-build-pdf = "tools.build_pdf:main"
 
 [project.urls]
-Homepage = "https://github.com/bbcmpsu/-"
-Repository = "https://github.com/bbcmpsu/-"
-Issues = "https://github.com/bbcmpsu/-/issues"
+Homepage = "https://github.com/bbcmpsu/Project-Harmony"
+Repository = "https://github.com/bbcmpsu/Project-Harmony"
+Issues = "https://github.com/bbcmpsu/Project-Harmony/issues"
 
 [tool.setuptools]
 packages = ["eaca", "nodes", "tests"]

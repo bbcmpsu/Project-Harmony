@@ -93,9 +93,9 @@ class D1(Law):
             if not explicit:
                 blocked = True
                 severity = Severity.VIOLATION
-                reasons.append("изменение поведения ИИ-агента без явного согласия")
+                reasons.append("изменение поведения автономного узла без явного согласия")
             else:
-                reasons.append("изменение поведения ИИ-агента с явным согласием")
+                reasons.append("изменение поведения автономного узла с явным согласием")
 
         # Отзыв согласия должен уважаться немедленно.
         if ctx.get("consent_revoked") is True:

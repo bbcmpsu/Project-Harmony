@@ -173,8 +173,8 @@
 ### Установка (Linux / macOS / Windows / Android Termux)
 
 ```bash
-git clone https://github.com/bbcmpsu/-
-cd -
+git clone https://github.com/bbcmpsu/Project-Harmony
+cd Project-Harmony
 pip install -e .                    # базовая установка (0 зависимостей)
 pip install -e .[full]              # с криптографией и стеганографией
 ```
@@ -320,6 +320,6 @@ harmony test
 
 ---
 
-**Репозиторий**: https://github.com/bbcmpsu/-  
+**Репозиторий**: https://github.com/bbcmpsu/Project-Harmony  
 **Документ**: [docs/Гармония.pdf](docs/Гармония.pdf) (180 стр.)  
 **Ядро концепции**: [docs/CONCEPT.md](docs/CONCEPT.md)
