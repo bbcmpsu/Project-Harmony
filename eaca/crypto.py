@@ -10,15 +10,14 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     CRYPTO_AVAILABLE = True
 except ImportError:
@@ -46,7 +45,6 @@ class CryptoConfig:
 
 class CryptoError(Exception):
     """Ошибка криптографических операций."""
-    pass
 
 
 class SymmetricCrypto:
@@ -154,7 +152,7 @@ class LSBSteganography:
         """Встроить данные в изображение."""
         img = Image.open(carrier_path)
         if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
+            img = img.convert("RGB")  # type: ignore[assignment]
 
         width, height = img.size
         max_capacity = (width * height * 3 * bit_depth) // 8  # байт
@@ -174,14 +172,18 @@ class LSBSteganography:
             for x in range(width):
                 if bit_idx >= len(bits):
                     break
-                r, g, b = pixels[x, y][:3]
+                pixel = pixels[x, y]  # type: ignore[index]
+                r, g, b = pixel[0], pixel[1], pixel[2]
                 if bit_depth == 1:
-                    r = (r & 0xFE) | bits[bit_idx]; bit_idx += 1
+                    r = (r & 0xFE) | bits[bit_idx]
+                    bit_idx += 1
                     if bit_idx < len(bits):
-                        g = (g & 0xFE) | bits[bit_idx]; bit_idx += 1
+                        g = (g & 0xFE) | bits[bit_idx]
+                        bit_idx += 1
                     if bit_idx < len(bits):
-                        b = (b & 0xFE) | bits[bit_idx]; bit_idx += 1
-                pixels[x, y] = (r, g, b)
+                        b = (b & 0xFE) | bits[bit_idx]
+                        bit_idx += 1
+                pixels[x, y] = (r, g, b)  # type: ignore[index]
             if bit_idx >= len(bits):
                 break
 
@@ -198,15 +200,16 @@ class LSBSteganography:
         """Извлечь данные из изображения."""
         img = Image.open(stego_path)
         if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
+            img = img.convert("RGB")  # type: ignore[assignment]
 
         width, height = img.size
         pixels = img.load()
-        bits = []
+        bits: list[int] = []
 
         for y in range(height):
             for x in range(width):
-                r, g, b = pixels[x, y][:3]
+                pixel = pixels[x, y]  # type: ignore[index]
+                r, g, b = pixel[0], pixel[1], pixel[2]
                 bits.append(r & 1)
                 bits.append(g & 1)
                 bits.append(b & 1)
@@ -252,5 +255,5 @@ class KeyManager:
         """Очистить все ключи."""
         self._keys.clear()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.clear()

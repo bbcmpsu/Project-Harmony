@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -24,7 +24,7 @@ class R2Action(str, Enum):
     """Типы рокировок."""
     ROLE_SWITCH = "role_switch"        # смена роли узла
     CHANNEL_HOP = "channel_hop"        # смена канала связи
-    INTERFACE_SHIFT = "interface_shift" # смена интерфейса
+    INTERFACE_SHIFT = "interface_shift"  # смена интерфейса
     STATE_MIGRATE = "state_migrate"    # миграция состояния на другой узел
     FULL_CASTLING = "full_castling"    # полная рокировка (роль + канал + состояние)
 

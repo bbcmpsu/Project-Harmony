@@ -202,5 +202,5 @@ class EASM_Protocol:
         ]
         if prop.decision:
             lines.append(prop.decision.explain())
-        lines.append(f"Голоса: {dict((k, v.value) for k, v in prop.votes.items())}")
+        lines.append(f"Голоса: { {k: v.value for k, v in prop.votes.items()} }")
         return "\n".join(lines)

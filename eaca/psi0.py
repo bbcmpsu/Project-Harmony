@@ -19,14 +19,16 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from .laws import Law, Severity, Verdict
 
 # --------------------------------------------------------------------------
 # Правила: (код, регулярное выражение, уровень, объяснение)
 # --------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Rule:

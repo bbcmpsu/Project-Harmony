@@ -17,14 +17,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from .crypto import SymmetricCrypto, CryptoConfig, CryptoError, hash_sha256
+from .crypto import CryptoConfig, CryptoError, SymmetricCrypto, hash_sha256
 
 
 class TissueType(str, Enum):
@@ -113,10 +113,7 @@ class ImmuneSystem:
 
     def heal(self, cell: CellMetadata, threat_msg: str) -> bool:
         """Попытаться исцелить клетку."""
-        for healer in self.healing_agents:
-            if healer(cell):
-                return True
-        return False
+        return any(healer(cell) for healer in self.healing_agents)
 
 
 class BioFS:
@@ -143,11 +140,12 @@ class BioFS:
         reg_path = self._registry_path()
         if reg_path.exists():
             try:
-                with open(reg_path, "r", encoding="utf-8") as f:
+                with open(reg_path, encoding="utf-8") as f:
                     data = json.load(f)
                 for path, meta in data.items():
                     self.registry[path] = CellMetadata(**meta)
-            except Exception:
+            except (json.JSONDecodeError, OSError, TypeError):
+                # Corrupted or unreadable registry — start fresh
                 pass
 
     def _save_registry(self) -> None:
@@ -258,7 +256,7 @@ class BioFS:
 
     def verify_all(self) -> dict[str, Any]:
         """Верификация всех клеток."""
-        results = {"total": 0, "ok": 0, "corrupted": 0, "missing": 0, "details": []}
+        results: dict[str, Any] = {"total": 0, "ok": 0, "corrupted": 0, "missing": 0, "details": []}
         for path, meta in self.registry.items():
             results["total"] += 1
             full_path = self.root / path

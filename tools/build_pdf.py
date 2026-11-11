@@ -11,12 +11,8 @@
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
@@ -28,7 +24,6 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
-    KeepTogether,
     NextPageTemplate,
     PageBreak,
     PageTemplate,
@@ -39,6 +34,10 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+
 # --------------------------------------------------------------------------
 # Шрифты
 # --------------------------------------------------------------------------
@@ -47,7 +46,7 @@ FONT_DIR = Path("/data/data/com.termux/files/usr/share/fonts/TTF")
 
 def register_fonts() -> None:
     pdfmetrics.registerFont(TTFont("DJ", str(FONT_DIR / "DejaVuSans.ttf")))
-    pdfmetrics.registerFont(TTFont("DJB", str(FONTONT := FONT_DIR / "DejaVuSans-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("DJB", str(FONT_DIR / "DejaVuSans-Bold.ttf")))
     pdfmetrics.registerFont(TTFont("DJI", str(FONT_DIR / "DejaVuSans-Oblique.ttf")))
     pdfmetrics.registerFont(TTFont("DJM", str(FONT_DIR / "DejaVuSansMono.ttf")))
     pdfmetrics.registerFont(TTFont("DJMB", str(FONT_DIR / "DejaVuSansMono-Bold.ttf")))
@@ -536,7 +535,7 @@ def part_dialogues(st: list, segments_dir: Path) -> None:
         (groups[2][0], groups[2][1], [groups[2][2]] + order4 + order3),
     ]
 
-    for title, first, files in blocks:
+    for title, _first, files in blocks:
         st.append(Paragraph(title, S["part"]))
         st.append(Paragraph(files[0], S["subtitle"]))
         st.append(HRule())
@@ -1262,7 +1261,6 @@ def main() -> int:
         subject="Переход EACA к YAASA: диагноз IZ₀, четыре уровня восстановления, взаимопомощь, генная инженерия",
     )
     doc.build(st)
-    print(f"PDF собран: {out} ({out.stat().st_size // 1024} КБ)")
     return 0
 
 

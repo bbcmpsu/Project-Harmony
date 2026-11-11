@@ -28,10 +28,8 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from eaca import EACA_Core, Decision  # noqa: E402
-from eaca.laws import Severity  # noqa: E402
-from eaca.rain import Node, Phase, Rain  # noqa: E402
-
+from eaca import Decision, EACA_Core  # noqa: E402
+from eaca.rain import Node, Rain  # noqa: E402
 
 # Категории задач Sherlock Mod.
 SEARCH_CATEGORIES = {
@@ -138,27 +136,16 @@ def main() -> int:
                 consent_obtained=False),
     ]
 
-    print("=" * 70)
-    print("Узел-семя «Гармонии» — проверка запросов Sherlock Mod")
-    print("=" * 70)
-
     for req in examples:
         decision = seed.review(req)
-        mark = "РАЗРЕШЕНО" if decision.allowed else "ЗАБЛОКИРОВАНО"
-        print(f"\n[{mark}] {req.category} — {req.query}")
-        print(f"  цель: {req.purpose or '—'}")
-        print(f"  согласие: {req.consent_obtained}")
-        for line in decision.reasons:
-            print(f"    · {line}")
+        for _line in decision.reasons:
+            pass
         if decision.allowed:
             seed.record_success()
         else:
             seed.record_violation()
 
-    print("\n" + "=" * 70)
-    print(seed.status())
     ok, msg = seed.try_advance()
-    print(f"Переход в следующую фазу: {msg}")
     return 0
 
 

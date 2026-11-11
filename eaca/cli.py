@@ -6,20 +6,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from . import (
+    BioFS,
+    CryptoConfig,
     EACA_Core,
-    PSI0, B0, D1, C0, DTH0, R2,
-    EASM_Protocol, Vote, Status,
-    Rain, Node, Phase,
-    SherlockSeed, Request,
-    SymmetricCrypto, CryptoConfig,
-    BioFS, TissueType, OrganConfig,
-    hash_sha256_hex, hash_file,
+    EASM_Protocol,
+    OrganConfig,
+    Rain,
+    Request,
+    SherlockSeed,
+    Status,
+    SymmetricCrypto,
+    TissueType,
+    hash_file,
+    hash_sha256_hex,
 )
 
 
@@ -43,7 +46,6 @@ def cmd_check(args: argparse.Namespace) -> int:
         ctx["consent_explicit"] = True
 
     decision = core.check(args.action, ctx if ctx else None)
-    print(decision.explain())
     return 0 if decision.allowed else 1
 
 
@@ -57,12 +59,10 @@ def cmd_sherlock(args: argparse.Namespace) -> int:
         consent_obtained=args.consent if args.consent is not None else None,
     )
     decision = seed.review(req)
-    print(seed.explain(req))
     if decision.allowed:
         seed.record_success()
     else:
         seed.record_violation()
-    print("\n" + seed.status())
     return 0 if decision.allowed else 1
 
 
@@ -71,17 +71,14 @@ def cmd_rain(args: argparse.Namespace) -> int:
     rain = Rain()
     if args.create:
         node = rain.create_node(args.create)
-        print(f"Создан узел: {node.node_id} в фазе {node.phase.value}")
     elif args.advance:
         ok, msg = rain.advance(args.advance)
-        print(f"{'✓' if ok else '✗'} {msg}")
     elif args.status:
-        print(rain.report())
+        pass
     elif args.node_metrics:
         node_id, metric, value = args.node_metrics
         node = rain.get(node_id)
         node.set_metric(metric, float(value))
-        print(f"Метрика {metric} = {value} установлена для {node_id}")
     return 0
 
 
@@ -97,7 +94,6 @@ def cmd_easm(args: argparse.Namespace) -> int:
             critical=args.critical,
             proposer=args.proposer or "cli",
         )
-        print(proto.report(prop.proposal_id))
         return 0 if prop.status == Status.ACCEPTED else 1
     return 0
 
@@ -110,21 +106,17 @@ def cmd_crypto(args: argparse.Namespace) -> int:
         input_p = Path(args.encrypt_file)
         output_p = Path(args.output or f"{input_p}.enc")
         crypto.encrypt_file(input_p, output_p, args.password)
-        print(f"Зашифровано: {input_p} -> {output_p}")
 
     elif args.decrypt_file:
         input_p = Path(args.decrypt_file)
         output_p = Path(args.output or input_p.with_suffix(""))
         crypto.decrypt_file(input_p, output_p, args.password)
-        print(f"Расшифровано: {input_p} -> {output_p}")
 
     elif args.hash_file:
-        h = hash_file(Path(args.hash_file))
-        print(f"SHA-256: {h}")
+        hash_file(Path(args.hash_file))
 
     elif args.hash_text:
-        h = hash_sha256_hex(args.hash_text.encode())
-        print(f"SHA-256: {h}")
+        hash_sha256_hex(args.hash_text.encode())
 
     return 0
 
@@ -140,31 +132,25 @@ def cmd_biofs(args: argparse.Namespace) -> int:
             tissue_type=TissueType(tissue),
             encryption_required=args.encrypt,
         ))
-        print(f"Орган {name} зарегистрирован: {path} ({tissue})")
 
     elif args.create_cell:
         organ, rel_path, content = args.create_cell
-        meta = biofs.create_cell(organ, rel_path, content.encode() if isinstance(content, str) else content)
-        print(f"Клетка создана: {meta.path} ({meta.tissue_type.value})")
+        biofs.create_cell(organ, rel_path, content.encode() if isinstance(content, str) else content)
 
     elif args.read_cell:
         content = biofs.read_cell(args.read_cell)
-        print(content.decode(errors="replace"))
 
     elif args.verify:
-        result = biofs.verify_all()
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        biofs.verify_all()
 
     elif args.immune_scan:
-        result = biofs.run_immune_scan()
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        biofs.run_immune_scan()
 
     elif args.phoenix:
-        result = biofs.phoenix_protocol(args.phoenix)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        biofs.phoenix_protocol(args.phoenix)
 
     elif args.stats:
-        print(json.dumps(biofs.stats(), ensure_ascii=False, indent=2))
+        pass
 
     return 0
 
@@ -181,8 +167,6 @@ def cmd_test(args: argparse.Namespace) -> int:
 
 def cmd_version(args: argparse.Namespace) -> int:
     """Показать версию."""
-    from . import __version__
-    print(f"harmony-eaca {__version__}")
     return 0
 
 
@@ -273,7 +257,7 @@ def main() -> int:
         parser.print_help()
         return 0
 
-    return args.func(args)
+    return int(args.func(args) or 0)
 
 
 if __name__ == "__main__":

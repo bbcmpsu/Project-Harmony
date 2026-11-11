@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .bzero import B0, B0Config
 from .c0 import C0, C0Config
@@ -26,6 +27,7 @@ from .dth0 import DTH0, DTH0Config
 from .laws import Decision, Law, Severity, Verdict, combine
 from .psi0 import PSI0
 from .r2 import R2, R2Config
+
 
 @dataclass
 class AuditRecord:
@@ -47,6 +49,7 @@ class AuditRecord:
             "reasons": list(self.reasons),
             "context": self.context,
         }
+
 
 class EACA_Core:
     """Ядро EACA: набор законов + журнал решений."""
@@ -123,12 +126,14 @@ class EACA_Core:
             "laws": [law.code for law in self.laws],
         }
 
+
 def _jsonable(value: Any) -> bool:
     try:
         json.dumps(value)
     except (TypeError, ValueError):
         return False
     return True
+
 
 __all__ = [
     "EACA_Core",

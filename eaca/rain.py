@@ -21,10 +21,11 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 class Phase(str, Enum):
@@ -33,7 +34,7 @@ class Phase(str, Enum):
     BIOPROTOCOL = "bioproto"  # фаза биопротокола
 
     @property
-    def title(self) -> str:
+    def label(self) -> str:
         return {
             Phase.SYNTHESIS: "Фаза синтеза",
             Phase.ATLANTS: "Фаза атлантов",
@@ -48,10 +49,10 @@ class Criteria:
     описанием. Переход возможен, только когда выполнены **все** критерии.
     """
 
-    def __init__(self, checks: dict[str, Callable[["Node"], bool]]) -> None:
+    def __init__(self, checks: dict[str, Callable[[Node], bool]]) -> None:
         self.checks = dict(checks)
 
-    def evaluate(self, node: "Node") -> tuple[bool, dict[str, bool]]:
+    def evaluate(self, node: Node) -> tuple[bool, dict[str, bool]]:
         results = {name: bool(fn(node)) for name, fn in self.checks.items()}
         return all(results.values()), results
 
@@ -61,27 +62,27 @@ class Criteria:
 
 # --- критерии по фазам ---------------------------------------------------
 
-def _has_data(node: "Node") -> bool:
+def _has_data(node: Node) -> bool:
     return node.metrics.get("records_collected", 0) > 0
 
 
-def _has_audit(node: "Node") -> bool:
+def _has_audit(node: Node) -> bool:
     return node.metrics.get("decisions_audited", 0) > 0
 
 
-def _no_violations(node: "Node") -> bool:
+def _no_violations(node: Node) -> bool:
     return node.metrics.get("violations", 0) == 0
 
 
-def _stable(node: "Node") -> bool:
+def _stable(node: Node) -> bool:
     return node.metrics.get("uptime_ratio", 0.0) >= 0.9
 
 
-def _has_consent_flow(node: "Node") -> bool:
+def _has_consent_flow(node: Node) -> bool:
     return node.metrics.get("consent_rate", 0.0) >= 0.8
 
 
-def _external_feedback(node: "Node") -> bool:
+def _external_feedback(node: Node) -> bool:
     return node.metrics.get("external_feedback", 0) > 0
 
 
@@ -116,15 +117,15 @@ class Node:
 
     node_id: str
     phase: Phase = Phase.SYNTHESIS
-    metrics: dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
     history: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
     def bump(self, metric: str, delta: float = 1) -> None:
         """Обновить метрику узла."""
-        self.metrics[metric] = self.metrics.get(metric, 0) + delta
+        self.metrics[metric] = self.metrics.get(metric, 0.0) + delta
 
-    def set_metric(self, metric: str, value: Any) -> None:
+    def set_metric(self, metric: str, value: float) -> None:
         self.metrics[metric] = value
 
     def snapshot(self) -> dict[str, Any]:
@@ -206,7 +207,7 @@ class Rain:
             "criteria": results,
         })
         self._log("phase_advanced", node_id, {"from": old.value, "to": next_phase.value})
-        return True, f"{old.title} → {next_phase.title}"
+        return True, f"{old.label} → {next_phase.label}"
 
     @staticmethod
     def next_phase(phase: Phase) -> Phase | None:
@@ -223,7 +224,7 @@ class Rain:
         for node in self.nodes.values():
             ok, results, desc = self.evaluate_transition(node.node_id)
             lines.append(f"Узел: {node.node_id}")
-            lines.append(f"  Фаза: {node.phase.title}")
+            lines.append(f"  Фаза: {node.phase.label}")
             lines.append(f"  Метрики: {node.metrics}")
             if ok:
                 lines.append("  Готов к переходу в следующую фазу")

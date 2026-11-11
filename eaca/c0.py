@@ -123,7 +123,10 @@ class C0(Law):
                 if drift:
                     blocked = True
                     severity = Severity.VIOLATION
-                    reasons.append(msg)
+                    if msg is not None:
+                        reasons.append(msg)
+                    else:
+                        reasons.append(f"ковариационный сдвиг {metric}: значение {value} за пределами допуска")
                     self._drift_history.append({
                         "action": action,
                         "metric": metric,
