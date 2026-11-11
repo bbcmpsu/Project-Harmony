@@ -9,6 +9,9 @@
 проверяемое действие записывается, включая заблокированные. Это нужно, чтобы
 «точка кристаллизации» из «Дождя» могла расти не на словах, а на проверяемой
 истории.
+
+Интеграция с локальным ИИ: ядро может делегировать сложные этические оценки
+локальному ИИ движку (llama.cpp / Ollama / transformers) без корпоративных API.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from .c0 import C0, C0Config
 from .done import D1
 from .dth0 import DTH0, DTH0Config
 from .laws import Decision, Law, Severity, Verdict, combine
+from .local_ai import LocalAIEngine, ModelBackend, ModelConfig
 from .psi0 import PSI0
 from .r2 import R2, R2Config
 
@@ -39,6 +43,7 @@ class AuditRecord:
     severity: str
     reasons: tuple[str, ...]
     context: dict[str, Any] = field(default_factory=dict)
+    ai_evaluation: str | None = None  # Оценка локального ИИ
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,11 +53,12 @@ class AuditRecord:
             "severity": self.severity,
             "reasons": list(self.reasons),
             "context": self.context,
+            "ai_evaluation": self.ai_evaluation,
         }
 
 
 class EACA_Core:
-    """Ядро EACA: набор законов + журнал решений."""
+    """Ядро EACA: набор законов + журнал решений + локальный ИИ."""
 
     def __init__(
         self,
@@ -60,20 +66,113 @@ class EACA_Core:
         *,
         audit_path: str | Path | None = None,
         enable_extended_laws: bool = True,
+        local_ai_config: ModelConfig | None = None,
+        local_ai_enabled: bool = True,
     ) -> None:
         if laws is None:
             base_laws = [PSI0(), B0(), D1()]
             if enable_extended_laws:
-                base_laws.extend([C0(), DTH0(), R2()])
+                extended = []
+                if C0 is not None:
+                    extended.append(C0())
+                if DTH0 is not None:
+                    extended.append(DTH0())
+                if R2 is not None:
+                    extended.append(R2())
+                base_laws.extend(extended)
             laws = base_laws
         self.laws: list[Law] = list(laws)
         self.audit_path = Path(audit_path) if audit_path else None
         self.records: list[AuditRecord] = []
 
+        # Локальный ИИ движок
+        self._local_ai_enabled = local_ai_enabled
+        self._local_ai_config = local_ai_config
+        self._local_ai_engine: LocalAIEngine | None = None
+        self._local_ai_initialized = False
+
+    # -- инициализация локального ИИ --------------------------------------
+
+    async def _init_local_ai(self) -> bool:
+        """Инициализация локального ИИ движка."""
+        if not self._local_ai_enabled or self._local_ai_initialized:
+            return self._local_ai_initialized
+
+        try:
+            config = self._local_ai_config or ModelConfig(backend=ModelBackend.LLAMA_CPP)
+            self._local_ai_engine = LocalAIEngine()
+            success = await self._local_ai_engine.initialize(config)
+            self._local_ai_initialized = success
+            if success:
+                pass
+            return success
+        except Exception:
+            self._local_ai_initialized = False
+            return False
+
+    async def _eval_with_local_ai(self, action: str, context: dict[str, Any], verdicts: list) -> str | None:
+        """Оценка действия локальным ИИ для сложных случаев."""
+        if not self._local_ai_initialized or not self._local_ai_engine or not self._local_ai_engine.is_ready:
+            return None
+
+        try:
+            # Формируем промпт для этичной оценки
+            laws_summary = "\n".join([f"- {v.law}: {'ALLOW' if v.allowed else 'DENY'} ({', '.join(v.reasons)})" for v in verdicts])
+
+            prompt = f"""Ты — этический советник системы «Гармония». Оцени действие по законам PSI₀, B₀, D₁.
+
+Действие: {action}
+
+Контекст: {json.dumps(context, ensure_ascii=False)}
+
+Результаты законов:
+{laws_summary}
+
+Дай краткую этическую оценку: согласен ли ты с вердиктом законов? Есть ли скрытые риски?
+Ответь кратко, на русском."""
+
+            result = await self._local_ai_engine.generate(prompt, max_tokens=512, temperature=0.3)
+            return result.text.strip()
+        except Exception:
+            return None
+
     # -- проверка ---------------------------------------------------------
 
     def check(self, action: str, context: dict[str, Any] | None = None) -> Decision:
-        """Проверить действие всеми законами."""
+        """Проверить действие всеми законами (синхронно)."""
+        return self._check_sync(action, context)
+
+    async def check_async(self, action: str, context: dict[str, Any] | None = None) -> Decision:
+        """Проверить действие всеми законами + локальный ИИ (асинхронно)."""
+        await self._init_local_ai()
+
+        ctx = dict(context or {})
+        verdicts = [law.evaluate(action, ctx) for law in self.laws]
+        decision = combine(verdicts)
+
+        # Локальный ИИ оценка для пограничных случаев
+        ai_eval = None
+        if (
+            self._local_ai_initialized
+            and self._local_ai_engine
+            and self._local_ai_engine.is_ready
+            and (decision.severity.value in ("warning", "violation") or len(verdicts) > 3)
+        ):
+            ai_eval = await self._eval_with_local_ai(action, ctx, verdicts)
+
+        # Добавляем ИИ оценку в решение
+        if ai_eval:
+            decision = Decision(
+                allowed=decision.allowed,
+                severity=decision.severity,
+                reasons=decision.reasons + (f"AI: {ai_eval}",),
+            )
+
+        self._record(action, decision, ctx, ai_eval)
+        return decision
+
+    def _check_sync(self, action: str, context: dict[str, Any] | None = None) -> Decision:
+        """Синхронная проверка (без ИИ)."""
         ctx = dict(context or {})
         verdicts = [law.evaluate(action, ctx) for law in self.laws]
         decision = combine(verdicts)
@@ -82,15 +181,15 @@ class EACA_Core:
 
     def allows(self, action: str, context: dict[str, Any] | None = None) -> bool:
         """Короткая форма: разрешено ли действие."""
-        return self.check(action, context).allowed
+        return self._check_sync(action, context).allowed
 
     def explain(self, action: str, context: dict[str, Any] | None = None) -> str:
         """Проверить и вернуть человекочитаемое объяснение."""
-        return self.check(action, context).explain()
+        return self._check_sync(action, context).explain()
 
     # -- журнал -----------------------------------------------------------
 
-    def _record(self, action: str, decision: Decision, context: dict[str, Any]) -> None:
+    def _record(self, action: str, decision: Decision, context: dict[str, Any], ai_eval: str | None = None) -> None:
         rec = AuditRecord(
             ts=time.time(),
             action=action,
@@ -98,6 +197,7 @@ class EACA_Core:
             severity=decision.severity.value,
             reasons=decision.reasons,
             context={k: v for k, v in context.items() if _jsonable(v)},
+            ai_evaluation=ai_eval,
         )
         self.records.append(rec)
         if self.audit_path:
@@ -119,12 +219,23 @@ class EACA_Core:
         """Сводка по принятым решениям."""
         total = len(self.records)
         blocked = sum(1 for r in self.records if not r.allowed)
+        ai_evals = sum(1 for r in self.records if r.ai_evaluation)
         return {
             "total": total,
             "allowed": total - blocked,
             "blocked": blocked,
+            "ai_evaluations": ai_evals,
             "laws": [law.code for law in self.laws],
         }
+
+    # -- управление ИИ ----------------------------------------------------
+
+    async def shutdown_local_ai(self) -> None:
+        """Корректное завершение локального ИИ."""
+        if self._local_ai_engine:
+            await self._local_ai_engine.shutdown()
+            self._local_ai_engine = None
+            self._local_ai_initialized = False
 
 
 def _jsonable(value: Any) -> bool:

@@ -35,6 +35,7 @@ from .done import D1
 from .dth0 import DTH0, DTH0Config
 from .easm import Agent, EASM_Protocol, Proposal, Status, Vote
 from .laws import Decision, Law, Severity, Verdict, combine
+from .local_ai import LocalAIEngine, ModelBackend, ModelConfig
 from .nodes.sherlock_seed import Request, SherlockSeed
 from .psi0 import PSI0
 from .r2 import R2, R2Action, R2Config
@@ -62,6 +63,10 @@ __all__ = [
     # Ядро
     "EACA_Core",
     "AuditRecord",
+    # Локальный ИИ
+    "LocalAIEngine",
+    "ModelBackend",
+    "ModelConfig",
     # Протоколы
     "EASM_Protocol",
     "Agent",

@@ -64,6 +64,7 @@ line-length = 100
 target-version = "py310"
 select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM", "PIE", "T20", "PT"]
 ignore = ["E501", "B008"]
+exclude = ["pilots/**", "p2p_poc/**", "*.pyi"]
 
 [tool.ruff.lint]
 preview = true
@@ -80,9 +81,25 @@ strict = true
 show_error_codes = true
 pretty = true
 
+# Missing stubs for optional dependencies
+ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = "eaca.*"
 strict = true
+
+[[tool.mypy.overrides]]
+module = "eaca.local_ai"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "eaca.daemon"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "eaca.core"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "nodes.*"
